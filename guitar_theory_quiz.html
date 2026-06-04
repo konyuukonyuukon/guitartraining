@@ -1,0 +1,451 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.app{padding:1rem 0;max-width:680px}
+.tabs{display:flex;gap:6px;margin-bottom:1.5rem;flex-wrap:wrap}
+.tab{padding:7px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);transition:all .15s}
+.tab.active{background:var(--color-background-primary);border-color:var(--color-border-primary);color:var(--color-text-primary);font-weight:500}
+.section{display:none}.section.active{display:block}
+.fretboard-wrap{overflow-x:auto;margin-bottom:1.5rem}
+.quiz-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1rem}
+.quiz-question{font-size:17px;font-weight:500;color:var(--color-text-primary);margin-bottom:1.25rem;line-height:1.5}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choice{padding:10px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);text-align:left;transition:all .15s}
+.choice:hover{background:var(--color-background-secondary)}
+.choice.correct{background:#EAF3DE;border-color:#639922;color:#27500A}
+.choice.wrong{background:#FCEBEB;border-color:#A32D2D;color:#501313}
+.choice:disabled{cursor:default}
+.result-msg{padding:12px 16px;border-radius:var(--border-radius-md);font-size:14px;margin-top:1rem;line-height:1.5}
+.result-msg.ok{background:#EAF3DE;color:#27500A;border:0.5px solid #639922}
+.result-msg.ng{background:#FCEBEB;color:#501313;border:0.5px solid #A32D2D}
+.next-btn{margin-top:12px;padding:9px 18px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary)}
+.next-btn:hover{background:var(--color-background-secondary)}
+.score-bar{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;font-size:13px;color:var(--color-text-secondary)}
+.score-num{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.mode-btns{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.mode-btn{padding:6px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary)}
+.mode-btn.active{border-color:var(--color-border-primary);color:var(--color-text-primary);font-weight:500}
+.ref-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1rem}
+.ref-table th{text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);font-weight:500}
+.ref-table td{padding:7px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.ref-table tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-purple{background:#EEEDFE;color:#3C3489}
+.badge-teal{background:#E1F5EE;color:#0F6E56}
+.badge-amber{background:#FAEEDA;color:#633806}
+.badge-coral{background:#FAECE7;color:#712B13}
+.hint{font-size:12px;color:var(--color-text-tertiary);margin-top:6px}
+.fret-label{font-size:11px;fill:var(--color-text-tertiary)}
+</style>
+<div class="app">
+<h2 class="sr-only">ギター理論学習アプリ — コード・スケール・インターバルのクイズ</h2>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('quiz')">クイズ</button>
+  <button class="tab" onclick="switchTab('fretboard')">指板マップ</button>
+  <button class="tab" onclick="switchTab('intervals')">インターバル表</button>
+  <button class="tab" onclick="switchTab('scales')">スケール早見</button>
+</div>
+
+<div id="sec-quiz" class="section active">
+  <div class="mode-btns">
+    <button class="mode-btn active" onclick="setMode('notename')" id="m-notename">音名・英語表記</button>
+    <button class="mode-btn" onclick="setMode('fret')" id="m-fret">指板の音</button>
+    <button class="mode-btn" onclick="setMode('interval')" id="m-interval">インターバル</button>
+    <button class="mode-btn" onclick="setMode('chord')" id="m-chord">コードの仕組み</button>
+    <button class="mode-btn" onclick="setMode('scale')" id="m-scale">スケール</button>
+  </div>
+  <div class="score-bar">
+    <span>スコア</span>
+    <span class="score-num" id="score-disp">0 / 0</span>
+    <span id="streak-disp" style="margin-left:auto;font-size:12px"></span>
+  </div>
+  <div id="quiz-area"></div>
+</div>
+
+<div id="sec-fretboard" class="section">
+  <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:13px;color:var(--color-text-secondary)">ハイライト:</span>
+    <select id="fb-note-sel" onchange="renderFretboard()" style="font-size:13px;padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)">
+      <option value="">全て表示</option>
+      <option value="C">C (ド)</option><option value="D">D (レ)</option><option value="E">E (ミ)</option>
+      <option value="F">F (ファ)</option><option value="G">G (ソ)</option><option value="A">A (ラ)</option>
+      <option value="B">B (シ)</option><option value="C#">C# / D♭</option><option value="D#">D# / E♭</option>
+      <option value="F#">F# / G♭</option><option value="G#">G# / A♭</option><option value="A#">A# / B♭</option>
+    </select>
+    <select id="fb-scale-sel" onchange="renderFretboard()" style="font-size:13px;padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)">
+      <option value="">スケール選択</option>
+      <option value="major">メジャースケール</option>
+      <option value="minor">ナチュラルマイナー</option>
+      <option value="penta_maj">メジャーペンタ</option>
+      <option value="penta_min">マイナーペンタ</option>
+      <option value="blues">ブルーススケール</option>
+    </select>
+    <select id="fb-root-sel" onchange="renderFretboard()" style="font-size:13px;padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)">
+      <option value="0">ルート: C</option><option value="2">ルート: D</option><option value="4">ルート: E</option>
+      <option value="5">ルート: F</option><option value="7">ルート: G</option><option value="9">ルート: A</option>
+      <option value="11">ルート: B</option><option value="1">ルート: C#</option><option value="3">ルート: D#</option>
+      <option value="6">ルート: F#</option><option value="8">ルート: G#</option><option value="10">ルート: A#</option>
+    </select>
+  </div>
+  <div class="fretboard-wrap" id="fretboard-svg"></div>
+  <p class="hint">● ルート音 / ○ スケール音 / 薄い点 その他の音</p>
+</div>
+
+<div id="sec-intervals" class="section">
+  <table class="ref-table">
+    <thead><tr><th>度数</th><th>英語名</th><th>半音数</th><th>例 (C基準)</th><th>役割</th></tr></thead>
+    <tbody id="interval-table"></tbody>
+  </table>
+</div>
+
+<div id="sec-scales" class="section">
+  <div style="margin-bottom:12px">
+    <select id="sc-type" onchange="renderScaleRef()" style="font-size:13px;padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)">
+      <option value="major">メジャースケール</option>
+      <option value="minor">ナチュラルマイナー</option>
+      <option value="penta_maj">メジャーペンタトニック</option>
+      <option value="penta_min">マイナーペンタトニック</option>
+      <option value="blues">ブルーススケール</option>
+      <option value="dorian">ドリアンモード</option>
+      <option value="mixolydian">ミクソリディアンモード</option>
+    </select>
+  </div>
+  <div id="scale-ref-area"></div>
+</div>
+</div>
+
+<script>
+const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_JP={'C':'ド','C#':'ド#','D':'レ','D#':'レ#','E':'ミ','F':'ファ','F#':'ファ#','G':'ソ','G#':'ソ#','A':'ラ','A#':'ラ#','B':'シ'};
+const NOTE_ALT={'C#':'D♭','D#':'E♭','F#':'G♭','G#':'A♭','A#':'B♭'};
+const STRINGS=[4,9,2,7,11,4];// E A D G B E (低音から)
+const SCALES={
+  major:[0,2,4,5,7,9,11],
+  minor:[0,2,3,5,7,8,10],
+  penta_maj:[0,2,4,7,9],
+  penta_min:[0,3,5,7,10],
+  blues:[0,3,5,6,7,10],
+  dorian:[0,2,3,5,7,9,10],
+  mixolydian:[0,2,4,5,7,9,10]
+};
+const SCALE_NAMES={major:'メジャースケール (Ionian)',minor:'ナチュラルマイナー (Aeolian)',penta_maj:'メジャーペンタトニック',penta_min:'マイナーペンタトニック',blues:'ブルーススケール',dorian:'ドリアン',mixolydian:'ミクソリディアン'};
+const SCALE_USE={major:'明るい・ポップ・ロック全般',minor:'暗い・哀愁・バラード',penta_maj:'カントリー・ロック・アドリブの基本',penta_min:'ロック・ブルース・アドリブの超定番',blues:'ブルース・ロック・ジャズ',dorian:'ジャズ・フュージョン・Dorian feel',mixolydian:'ロック・ファンク・ブルージーな明るさ'};
+const SCALE_FORMULA={major:'全全半全全全半',minor:'全半全全半全全',penta_maj:'全全1.5全1.5',penta_min:'1.5全全1.5全',blues:'1.5全半半1.5全',dorian:'全半全全全半全',mixolydian:'全全半全全半全'};
+
+const INTERVALS=[
+  {n:'1度 (完全1度)',en:'Perfect Unison',semi:0,ex:'C→C',role:'ルート'},
+  {n:'♭2度 (短2度)',en:'Minor 2nd',semi:1,ex:'C→C#',role:'半音上、不協和'},
+  {n:'2度 (長2度)',en:'Major 2nd',semi:2,ex:'C→D',role:'スケールの隣の音'},
+  {n:'♭3度 (短3度)',en:'Minor 3rd',semi:3,ex:'C→D#',role:'マイナーコードの3rd'},
+  {n:'3度 (長3度)',en:'Major 3rd',semi:4,ex:'C→E',role:'メジャーコードの3rd'},
+  {n:'4度 (完全4度)',en:'Perfect 4th',semi:5,ex:'C→F',role:'コードのsus4'},
+  {n:'♭5度 (減5度)',en:'Diminished 5th / Tritone',semi:6,ex:'C→F#',role:'最も緊張感ある音程'},
+  {n:'5度 (完全5度)',en:'Perfect 5th',semi:7,ex:'C→G',role:'パワーコード・安定の音程'},
+  {n:'♭6度 (短6度)',en:'Minor 6th',semi:8,ex:'C→G#',role:'マイナーの色彩'},
+  {n:'6度 (長6度)',en:'Major 6th',semi:9,ex:'C→A',role:'add9・メジャーペンタに含む'},
+  {n:'♭7度 (短7度)',en:'Minor 7th',semi:10,ex:'C→A#',role:'7thコード・ブルース感'},
+  {n:'7度 (長7度)',en:'Major 7th',semi:11,ex:'C→B',role:'maj7コード・オシャレ感'},
+  {n:'8度 (完全8度)',en:'Octave',semi:12,ex:'C→C(高)',role:'オクターブ奏法'},
+];
+
+let quizMode='notename';
+let score=0,total=0,streak=0;
+let currentQ=null;
+let answered=false;
+
+function switchTab(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  event.target.classList.add('active');
+  if(id==='fretboard')renderFretboard();
+  if(id==='intervals')renderIntervalTable();
+  if(id==='scales')renderScaleRef();
+}
+
+function setMode(m){
+  quizMode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('m-'+m).classList.add('active');
+  nextQuestion();
+}
+
+function rand(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function randInt(a,b){return a+Math.floor(Math.random()*(b-a+1))}
+function shuffle(arr){let a=[...arr];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function genNotename(){
+  const note=rand(NOTES);
+  const type=rand(['en2jp','jp2en','alt']);
+  if(type==='en2jp'){
+    const ans=NOTE_JP[note];
+    const wrongs=shuffle(Object.values(NOTE_JP).filter(v=>v!==ans)).slice(0,3);
+    return{q:`この音名の日本語読みは？\n\n🎵  ${note}`,ans,choices:shuffle([ans,...wrongs]),explain:`${note} = ${NOTE_JP[note]}（${NOTE_ALT[note]?'異名同音: '+NOTE_ALT[note]:''}）`};
+  }else if(type==='jp2en'){
+    const ans=note;
+    const wrongs=shuffle(NOTES.filter(n=>n!==ans)).slice(0,3);
+    return{q:`この音の英語表記は？\n\n🎵  ${NOTE_JP[note]}（${note.includes('#')?'半音あり':'♮'}）`,ans,choices:shuffle([ans,...wrongs]),explain:`${NOTE_JP[note]} = ${note}（英語表記）`};
+  }else{
+    if(!NOTE_ALT[note]) return genNotename();
+    const ans=NOTE_ALT[note];
+    const wrongs=shuffle(Object.values(NOTE_ALT).filter(v=>v!==ans)).slice(0,3);
+    return{q:`この音の異名同音（エンハーモニック）は？\n\n🎵  ${note}`,ans,choices:shuffle([ans,...wrongs]),explain:`${note} と ${NOTE_ALT[note]} は同じ音の異なる表記`};
+  }
+}
+
+function genFret(){
+  const str=randInt(0,5);
+  const fret=randInt(0,11);
+  const noteIdx=(STRINGS[str]+fret)%12;
+  const note=NOTES[noteIdx];
+  const strNames=['1弦(高E)','2弦(B)','3弦(G)','4弦(D)','5弦(A)','6弦(低E)'];
+  const sIdx=5-str;
+  const ans=note;
+  const wrongs=shuffle(NOTES.filter(n=>n!==ans)).slice(0,3);
+  return{q:`${strNames[sIdx]}の${fret}フレットは何の音？`,ans,choices:shuffle([ans,...wrongs]),explain:`開放弦 ${NOTES[STRINGS[str]]} + ${fret}半音 = ${note}（${NOTE_JP[note]}）`};
+}
+
+function genInterval(){
+  const iv=rand(INTERVALS);
+  const types=['semi2name','name2semi','semi2role'];
+  const type=rand(types);
+  if(type==='semi2name'){
+    const ans=iv.n;
+    const wrongs=shuffle(INTERVALS.filter(i=>i.n!==ans)).slice(0,3).map(i=>i.n);
+    return{q:`半音数 ${iv.semi} の音程は？`,ans,choices:shuffle([ans,...wrongs]),explain:`${iv.semi}半音 = ${iv.n}（${iv.en}）例: ${iv.ex}`};
+  }else if(type==='name2semi'){
+    const ans=String(iv.semi);
+    const wrongs=shuffle(INTERVALS.filter(i=>i.semi!==iv.semi)).slice(0,3).map(i=>String(i.semi));
+    return{q:`${iv.n} は何半音？`,ans,choices:shuffle([ans,...wrongs]),explain:`${iv.n} = ${iv.semi}半音。例: ${iv.ex}`};
+  }else{
+    const ans=iv.role;
+    const wrongs=shuffle(INTERVALS.filter(i=>i.role!==ans)).slice(0,3).map(i=>i.role);
+    return{q:`${iv.n}（${iv.semi}半音）の役割は？`,ans,choices:shuffle([ans,...wrongs]),explain:`${iv.n}: ${iv.role}`};
+  }
+}
+
+function genChord(){
+  const root=rand(NOTES);
+  const types=[
+    {name:'メジャー',formula:[0,4,7],q:`${root} メジャーコードの構成音は？`},
+    {name:'マイナー',formula:[0,3,7],q:`${root} マイナーコードの構成音は？`},
+    {name:'dom7',formula:[0,4,7,10],q:`${root}7 コードの構成音は？`},
+    {name:'maj7',formula:[0,4,7,11],q:`${root}M7 コードの構成音は？`},
+    {name:'m7',formula:[0,3,7,10],q:`${root}m7 コードの構成音は？`},
+  ];
+  const ct=rand(types);
+  const rootIdx=NOTES.indexOf(root);
+  const tones=ct.formula.map(s=>NOTES[(rootIdx+s)%12]);
+  const ans=tones.join(' - ');
+
+  const makeFakeChord=(r,f)=>f.map(s=>NOTES[(NOTES.indexOf(r)+s)%12]).join(' - ');
+  const wrongRoots=shuffle(NOTES.filter(n=>n!==root)).slice(0,3);
+  const wrongs=wrongRoots.map(r=>makeFakeChord(r,ct.formula));
+
+  const roleLabels={
+    メジャー:'ルート - 長3度 - 完全5度',
+    マイナー:'ルート - 短3度 - 完全5度',
+    dom7:'ルート - 長3度 - 完全5度 - 短7度',
+    maj7:'ルート - 長3度 - 完全5度 - 長7度',
+    m7:'ルート - 短3度 - 完全5度 - 短7度',
+  };
+  return{q:ct.q,ans,choices:shuffle([ans,...wrongs]),explain:`${root} ${ct.name}: ${ans}\n構成: ${roleLabels[ct.name]}`};
+}
+
+function genScale(){
+  const scKeys=Object.keys(SCALES);
+  const scKey=rand(scKeys);
+  const root=rand(NOTES);
+  const rootIdx=NOTES.indexOf(root);
+  const tones=SCALES[scKey].map(s=>NOTES[(rootIdx+s)%12]);
+
+  const types=['name2intervals','formula','use'];
+  const type=rand(types);
+
+  if(type==='name2intervals'){
+    const ans=tones.join(' ');
+    const wrongRoots=shuffle(NOTES.filter(n=>n!==root)).slice(0,3);
+    const wrongs=wrongRoots.map(r=>SCALES[scKey].map(s=>NOTES[(NOTES.indexOf(r)+s)%12]).join(' '));
+    return{q:`${root} ${SCALE_NAMES[scKey].split(' ')[0]} の構成音は？`,ans,choices:shuffle([ans,...wrongs]),explain:`${root} ${SCALE_NAMES[scKey]}: ${ans}\nフォーミュラ: ${SCALE_FORMULA[scKey]}`};
+  }else if(type==='formula'){
+    const ans=SCALE_FORMULA[scKey];
+    const wrong_keys=shuffle(scKeys.filter(k=>k!==scKey)).slice(0,3);
+    const wrongs=wrong_keys.map(k=>SCALE_FORMULA[k]);
+    return{q:`${SCALE_NAMES[scKey].split('(')[0].trim()} のフォーミュラ（全=全音/半=半音）は？`,ans,choices:shuffle([ans,...wrongs]),explain:`${SCALE_NAMES[scKey]}: ${SCALE_FORMULA[scKey]}`};
+  }else{
+    const ans=SCALE_USE[scKey];
+    const wrong_keys=shuffle(scKeys.filter(k=>k!==scKey)).slice(0,3);
+    const wrongs=wrong_keys.map(k=>SCALE_USE[k]);
+    return{q:`このスケールが最もよく使われる場面は？\n\n🎵 ${SCALE_NAMES[scKey].split('(')[0].trim()}`,ans,choices:shuffle([ans,...wrongs]),explain:`${SCALE_NAMES[scKey]}: ${SCALE_USE[scKey]}`};
+  }
+}
+
+function nextQuestion(){
+  answered=false;
+  let q;
+  if(quizMode==='notename') q=genNotename();
+  else if(quizMode==='fret') q=genFret();
+  else if(quizMode==='interval') q=genInterval();
+  else if(quizMode==='chord') q=genChord();
+  else q=genScale();
+  currentQ=q;
+  renderQuiz(q);
+}
+
+function renderQuiz(q){
+  const area=document.getElementById('quiz-area');
+  area.innerHTML=`
+    <div class="quiz-card">
+      <div class="quiz-question">${q.q.replace(/\n/g,'<br>')}</div>
+      <div class="choices" id="choices">
+        ${q.choices.map((c,i)=>`<button class="choice" onclick="answer('${escQ(c)}')" id="ch${i}">${c}</button>`).join('')}
+      </div>
+      <div id="result-area"></div>
+      <div id="next-wrap" style="display:none">
+        <button class="next-btn" onclick="nextQuestion()">次の問題 →</button>
+      </div>
+    </div>`;
+}
+
+function escQ(s){return s.replace(/'/g,"\\'")}
+
+function answer(chosen){
+  if(answered) return;
+  answered=true;
+  total++;
+  const ok=chosen===currentQ.ans;
+  if(ok){score++;streak++;}else{streak=0;}
+  document.getElementById('score-disp').textContent=`${score} / ${total}`;
+  const pct=total>0?Math.round(score/total*100):0;
+  document.getElementById('streak-disp').textContent=streak>1?`🔥 ${streak} 連続正解`:'';
+
+  document.querySelectorAll('.choice').forEach(btn=>{
+    btn.disabled=true;
+    if(btn.textContent===currentQ.ans) btn.classList.add('correct');
+    else if(btn.textContent===chosen && !ok) btn.classList.add('wrong');
+  });
+
+  const ra=document.getElementById('result-area');
+  ra.innerHTML=`<div class="result-msg ${ok?'ok':'ng'}">
+    ${ok?'✓ 正解！':'✗ 不正解'}<br>
+    <span style="font-size:13px">${currentQ.explain.replace(/\n/g,'<br>')}</span>
+  </div>`;
+  document.getElementById('next-wrap').style.display='block';
+}
+
+function renderFretboard(){
+  const selNote=document.getElementById('fb-note-sel').value;
+  const scaleType=document.getElementById('fb-scale-sel').value;
+  const rootOffset=parseInt(document.getElementById('fb-root-sel').value);
+  const scaleNotes=scaleType?SCALES[scaleType].map(s=>(rootOffset+s)%12):null;
+
+  const W=620,H=200,padL=36,padR=16,padT=30,padB=20;
+  const frets=12;
+  const stringCount=6;
+  const fretW=(W-padL-padR)/frets;
+  const strH=(H-padT-padB)/(stringCount-1);
+  const dotFrets=[3,5,7,9,12];
+
+  const stringNotes=['E','B','G','D','A','E'];
+
+  let svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="min-width:${W}px;width:100%">`;
+
+  // fret markers
+  for(let f=0;f<=frets;f++){
+    const x=padL+f*fretW;
+    svg+=`<line x1="${x}" y1="${padT}" x2="${x}" y2="${H-padB}" stroke="var(--color-border-secondary)" stroke-width="${f===0?2:0.5}"/>`;
+  }
+  // strings
+  for(let s=0;s<stringCount;s++){
+    const y=padT+s*strH;
+    const thick=0.5+(s*0.3);
+    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--color-border-primary)" stroke-width="${thick}"/>`;
+  }
+  // dot markers on fretboard
+  dotFrets.forEach(f=>{
+    const x=padL+(f-0.5)*fretW;
+    if(f===12){
+      svg+=`<circle cx="${x}" cy="${padT+(strH*1.5)}" r="3" fill="var(--color-border-secondary)"/>`;
+      svg+=`<circle cx="${x}" cy="${padT+(strH*3.5)}" r="3" fill="var(--color-border-secondary)"/>`;
+    }else{
+      svg+=`<circle cx="${x}" cy="${H/2}" r="3" fill="var(--color-border-secondary)"/>`;
+    }
+    svg+=`<text x="${x}" y="${H-4}" text-anchor="middle" font-size="10" fill="var(--color-text-tertiary)">${f}</text>`;
+  });
+  // open string labels
+  for(let s=0;s<stringCount;s++){
+    svg+=`<text x="${padL-4}" y="${padT+s*strH+4}" text-anchor="end" font-size="10" fill="var(--color-text-secondary)">${stringNotes[s]}</text>`;
+  }
+
+  // notes
+  for(let s=0;s<stringCount;s++){
+    const baseNote=STRINGS[5-s];
+    for(let f=0;f<=frets;f++){
+      const noteIdx=(baseNote+f)%12;
+      const noteName=NOTES[noteIdx];
+      const x=padL+(f===0?-12:f*fretW-fretW/2);
+      const y=padT+s*strH;
+
+      const isSelected=selNote&&noteName===selNote;
+      const isRoot=scaleNotes&&noteIdx===rootOffset%12;
+      const inScale=scaleNotes&&scaleNotes.includes(noteIdx);
+
+      if(isRoot){
+        svg+=`<circle cx="${x}" cy="${y}" r="10" fill="#178259" stroke="none"/>`;
+        svg+=`<text x="${x}" y="${y+4}" text-anchor="middle" font-size="10" fill="white" font-weight="500">${noteName}</text>`;
+      }else if(inScale){
+        svg+=`<circle cx="${x}" cy="${y}" r="9" fill="none" stroke="#178259" stroke-width="1.5"/>`;
+        svg+=`<text x="${x}" y="${y+4}" text-anchor="middle" font-size="9" fill="var(--color-text-primary)">${noteName}</text>`;
+      }else if(isSelected){
+        svg+=`<circle cx="${x}" cy="${y}" r="10" fill="#533BA7" stroke="none"/>`;
+        svg+=`<text x="${x}" y="${y+4}" text-anchor="middle" font-size="10" fill="white" font-weight="500">${noteName}</text>`;
+      }else if(!selNote&&!scaleNotes){
+        svg+=`<circle cx="${x}" cy="${y}" r="8" fill="var(--color-background-secondary)" stroke="var(--color-border-secondary)" stroke-width="0.5"/>`;
+        svg+=`<text x="${x}" y="${y+4}" text-anchor="middle" font-size="9" fill="var(--color-text-secondary)">${noteName}</text>`;
+      }else{
+        svg+=`<circle cx="${x}" cy="${y}" r="5" fill="var(--color-border-tertiary)" stroke="none" opacity="0.4"/>`;
+      }
+    }
+  }
+  svg+='</svg>';
+  document.getElementById('fretboard-svg').innerHTML=svg;
+}
+
+function renderIntervalTable(){
+  const tbody=document.getElementById('interval-table');
+  tbody.innerHTML=INTERVALS.map(iv=>{
+    const badges={0:'badge-teal',1:'badge-coral',2:'badge-teal',3:'badge-purple',4:'badge-amber',5:'badge-teal',6:'badge-coral',7:'badge-green',8:'badge-purple',9:'badge-amber',10:'badge-amber',11:'badge-purple',12:'badge-teal'};
+    const bc=badges[iv.semi]||'badge-teal';
+    return`<tr>
+      <td><span class="badge ${bc}">${iv.n}</span></td>
+      <td style="color:var(--color-text-secondary);font-size:12px">${iv.en}</td>
+      <td style="text-align:center;font-weight:500">${iv.semi}</td>
+      <td style="font-family:var(--font-mono);font-size:13px">${iv.ex}</td>
+      <td style="color:var(--color-text-secondary);font-size:12px">${iv.role}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderScaleRef(){
+  const scKey=document.getElementById('sc-type').value;
+  const rootKeys=['C','D','E','F','G','A','B','C#','D#','F#','G#','A#'];
+  const area=document.getElementById('scale-ref-area');
+  area.innerHTML=`
+    <div style="margin-bottom:1rem;padding:12px 16px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <div style="font-size:14px;font-weight:500;margin-bottom:4px">${SCALE_NAMES[scKey]}</div>
+      <div style="font-size:13px;color:var(--color-text-secondary)">フォーミュラ: ${SCALE_FORMULA[scKey]}</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-top:2px">用途: ${SCALE_USE[scKey]}</div>
+    </div>
+    <table class="ref-table">
+      <thead><tr><th>ルート</th><th>構成音</th></tr></thead>
+      <tbody>${rootKeys.map(r=>{
+        const ri=NOTES.indexOf(r);
+        const tones=SCALES[scKey].map(s=>NOTES[(ri+s)%12]);
+        return`<tr><td style="font-weight:500;min-width:40px">${r}</td><td style="font-family:var(--font-mono);font-size:13px">${tones.join('  ')}</td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+nextQuestion();
+</script>
